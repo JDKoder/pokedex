@@ -27,6 +27,9 @@ type Locations struct {
 	} 					`json:"results"`
 }
 
+const (
+	locationAreaURL = "https://pokeapi.co/api/v2/location-area/"
+)
 func getCommands() map[string]cliCommand {
 	return map[string]cliCommand {
 		"help": {
@@ -97,9 +100,11 @@ url
 **/
 func commandMap(conf *config) error {
 	if conf.next == "" {
-		conf.next = "https://pokeapi.co/api/v2/location/"
+		conf.next = locationAreaURL
 	}
-	_, err := getLocations(conf.next)
+	locations, err := getLocations(conf.next)
+	stringReferenceAssignment(&conf.next, locations.Next)
+	stringReferenceAssignment(&conf.previous, locations.Previous)
 	return err
 }
 
@@ -113,7 +118,9 @@ func commandMapBack(conf *config) error {
 		fmt.Println("you're on the first page")
 		return nil
 	}
-	_, err := getLocations(conf.previous)
+	locations, err := getLocations(conf.previous)
+	stringReferenceAssignment(&conf.next, locations.Next)
+	stringReferenceAssignment(&conf.previous, locations.Previous)
 	return err
 }
 
@@ -133,7 +140,6 @@ func getLocations(url string) (Locations, error) {
 *** assignment to a string type is taken care of gracefully.
 **/
 func stringReferenceAssignment(dest *string, src *string) {
-	fmt.Printf("src=%w", src)
 	if src != nil {
 		*dest = *src
 	} else {
