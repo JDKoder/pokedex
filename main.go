@@ -18,13 +18,13 @@ type config struct {
 }
 
 type Locations struct {
-	Count    int    `json:"count"`
-	Next     string `json:"next"`
-	Previous any    `json:"previous"`
+	Count    int		`json:"count"`
+	Next     *string 	`json:"next"`
+	Previous *string    `json:"previous"`
 	Results  []struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	} `json:"results"`
+		Name string	`json:"name"`
+		URL  string	`json:"url"`
+	} 					`json:"results"`
 }
 
 func getCommands() map[string]cliCommand {
@@ -46,7 +46,7 @@ func getCommands() map[string]cliCommand {
 		},
 		"mapb": {
 			name: "mapb",
-			description: "Displays the names of last 20 Locations areas in the Pokemon world.  Each subsequent call to map should display the previous 20 locations.",
+			description: "Displays the names of last 20 Locations areas in the Pokemon world.  Each subsequent call to mapb should display the previous 20 locations.",
 			callback: commandMapBack,
 		},
 	}
@@ -99,22 +99,8 @@ func commandMap(conf *config) error {
 	if conf.next == "" {
 		conf.next = "https://pokeapi.co/api/v2/location/"
 	}
-	var locResults Locations
-	err := makeGetRequest(conf.next, &locResults)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("locResults: %d\n", locResults.Count)
-	for i := 0; i< len(locResults.Results); i++ {
-		fmt.Println(locResults.Results[i].Name)
-	}
-	if str, ok := locResults.Previous.(string); ok {
-		conf.previous = str
-	} else {
-		conf.previous = ""
-	}
-	conf.next = locResults.Next
-	return nil
+	_, err := getLocations(conf.next)
+	return err
 }
 
 /**
@@ -124,24 +110,35 @@ url
 **/
 func commandMapBack(conf *config) error {
 	if conf.previous == "" {
-		conf.previous = "https://pokeapi.co/api/v2/location/"
+		fmt.Println("you're on the first page")
+		return nil
 	}
+	_, err := getLocations(conf.previous)
+	return err
+}
+
+func getLocations(url string) (Locations, error) {
 	var locResults Locations
-	err := makeGetRequest(conf.previous, &locResults)
+	err := makeGetRequest(url, &locResults)
 	if err != nil {
-		return err
+		return locResults, fmt.Errorf("getLocations request to url failed: %s\n%w",url,err)
 	}
-	fmt.Printf("locResults: %d\n", locResults.Count)
 	for i := 0; i< len(locResults.Results); i++ {
 		fmt.Println(locResults.Results[i].Name)
 	}
-	if str, ok := locResults.Previous.(string); ok {
-		conf.previous = str
+	return locResults, nil
+}
+
+/** Because JSON might return nullable strings in the response, 
+*** assignment to a string type is taken care of gracefully.
+**/
+func stringReferenceAssignment(dest *string, src *string) {
+	fmt.Printf("src=%w", src)
+	if src != nil {
+		*dest = *src
 	} else {
-		conf.previous = ""
+		*dest = ""
 	}
-	conf.next = locResults.Next
-	return nil
 }
 
 func cleanInput(text string) []string {
