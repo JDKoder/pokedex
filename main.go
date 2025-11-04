@@ -28,8 +28,9 @@ type Locations struct {
 }
 
 const (
-	locationAreaURL = "https://pokeapi.co/api/v2/location-area/"
+	locationAreaURL = "https://pokeapi.co/api/v2/location-area/?offset=0&limit=20"
 )
+
 func getCommands() map[string]cliCommand {
 	return map[string]cliCommand {
 		"help": {
@@ -69,7 +70,7 @@ func main() {
 		if val, ok := getCommands()[command]; ok {
 			err := val.callback(&conf)
 			if err != nil {
-				fmt.Printf("Command [%s] failed: %s", err)
+				fmt.Errorf("Command [%s] failed: %w", command, err)
 			}
 		} else {
 			fmt.Println("Unknown command")
@@ -79,7 +80,7 @@ func main() {
 }
 
 func commandHelp(conf *config) error {
-	fmt.Println("Welcome to the Pokedex!\nUsage:\n")
+	fmt.Println("Welcome to the Pokedex!\nUsage:")
 	for _, val := range getCommands() {
 		fmt.Printf("%s: %s\n",  val.name, val.description)
 	}
