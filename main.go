@@ -4,6 +4,8 @@ import (
 	"strings"
 	"bufio"
 	"os"
+	"math"
+	"math/rand"
 )
 
 type cliCommand struct {
@@ -31,6 +33,7 @@ type Locations struct {
 const (
 	mapURL = "https://pokeapi.co/api/v2/location-area/?offset=0&limit=20"
 	areaURL = "https://pokeapi.co/api/v2/location-area/%s"
+	pokemonURL = "https://pokeapi.co/api/v2/pokemon/%s"
 )
 
 func getCommands() map[string]cliCommand {
@@ -60,8 +63,22 @@ func getCommands() map[string]cliCommand {
 			description: "takes a area name (see help for commands: map, mapb ) as an argument and returns a list of the pokemon in that area",
 			callback: commandExploreArea,
 		},
+		"catch": {
+			name: "catch",
+			description: "Attempt to catch a pokemon given by name in the first argument.  A message is returned whether or not the attempt to catch the pokemon was succesful or not.  If it was, the pokemon is added to the pokedex map",
+			callback: commandCatch,
+		},
+		"inspect": {
+			name: "inspect",
+			description: "Given a captured pokemon as the first argument, prints information about that pokemon.",
+			callback: commandInspect,
+		},
 	}
 }
+
+var (
+	pokedex = make(map[string]Pokemon)
+)
 
 func main() {
 	ioscanner := bufio.NewScanner(os.Stdin)
@@ -83,7 +100,7 @@ func main() {
 				}
 				args = append(args, input_word[i])
 			}
-			fmt.Println("args is %w", args)
+			//fmt.Println("args is %w", args)
 			conf.args = args
 		}
 		
@@ -165,6 +182,58 @@ func commandExploreArea(conf *config) error {
 	return nil
 }
 
+func commandCatch(conf *config) error {
+	if (len(conf.args) < 1) {
+		return fmt.Errorf("commandCatch takes a pokemon name as an argument, but args length was 0")
+	}
+	url := fmt.Sprintf(pokemonURL, conf.args[0])
+	var pokemon Pokemon 
+	err := makeGetRequest(url, &pokemon)
+	if err != nil {
+		return fmt.Errorf("commandCatch Error %w", err)
+	}
+	// base experience values range between 35 to 635.  I'd like to not have to attempt catching a pokemon more than 7 times and no less than 1 or 2.
+	// pull the pokemon base experience, divide it by 100 and round up to nearest decimal to produce the max catch value. If value is 0 or 1, increase it to 2.
+	// set a random number between 1 and the max catch value
+	maxDifficulty := float64(pokemon.BaseExperience) / 100.0
+	//fmt.Printf("maxDifficulty = %.1f\n", maxDifficulty)
+	maxDifficultyR := math.Ceil(maxDifficulty)
+	//fmt.Printf("maxDifficultyR = %v\n", maxDifficultyR)
+
+	catchChance := rand.Intn(int(maxDifficultyR + 1))
+	fmt.Printf("Throwing a Pokeball at %s...\n", pokemon.Name)
+	if catchChance == 1 {
+		fmt.Printf("%s was caught!\n", pokemon.Name)
+		pokedex[pokemon.Name] = pokemon
+	} else {
+		fmt.Printf("%s escaped!\n", pokemon.Name)
+	}
+	return nil
+}
+
+func commandInspect(conf *config) error {
+	if (len(conf.args) < 1) {
+		return fmt.Errorf("commandInspect takes a pokemon name as an argument, but args length was 0")
+	}
+	var pokemon Pokemon
+	pokemon, ok := pokedex[conf.args[0]]
+	if !ok {
+		fmt.Println("Please capture the given pokemon to view its data")
+		return nil
+	}
+	fmt.Printf("Name: %s\n", pokemon.Name)
+	fmt.Printf("Height: %d\n", pokemon.Height)
+	fmt.Printf("Weight: %d\n", pokemon.Weight)
+	fmt.Println("Stats:")
+	for _, Stat := range pokemon.Stats {
+		fmt.Printf("  -%s: %d\n", Stat.Stat.Name, Stat.BaseStat)
+	}
+	fmt.Println("Types:")
+	for _, Type := range pokemon.Types {
+		fmt.Printf("  - %s\n", Type.Type.Name)
+	}
+	return nil
+}
 func getLocations(url string) (Locations, error) {
 	var locResults Locations
 	err := makeGetRequest(url, &locResults)
