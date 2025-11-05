@@ -23,7 +23,7 @@ func (c cache) Add(key string, val []byte) {
 	defer c.mu.Unlock()
 	entry, ok := c.cacheEntries[key]
 	if ok {
-		fmt.Printf("cache.Add(%s) overwriting existing key's value: %w\n", key, val)
+		fmt.Printf("cache.Add(%s) overwriting\n", key)
 	} 
 	entry = cacheEntry{val: val, createdAt: time.Now()}
 	c.cacheEntries[key] = entry

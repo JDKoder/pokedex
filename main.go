@@ -15,6 +15,7 @@ type cliCommand struct {
 type config struct {
 	next string
 	previous string
+	args []string
 }
 
 type Locations struct {
@@ -28,7 +29,8 @@ type Locations struct {
 }
 
 const (
-	locationAreaURL = "https://pokeapi.co/api/v2/location-area/?offset=0&limit=20"
+	mapURL = "https://pokeapi.co/api/v2/location-area/?offset=0&limit=20"
+	areaURL = "https://pokeapi.co/api/v2/location-area/%s"
 )
 
 func getCommands() map[string]cliCommand {
@@ -53,6 +55,11 @@ func getCommands() map[string]cliCommand {
 			description: "Displays the names of last 20 Locations areas in the Pokemon world.  Each subsequent call to mapb should display the previous 20 locations.",
 			callback: commandMapBack,
 		},
+		"explore": {
+			name: "explore",
+			description: "takes a area name (see help for commands: map, mapb ) as an argument and returns a list of the pokemon in that area",
+			callback: commandExploreArea,
+		},
 	}
 }
 
@@ -63,10 +70,23 @@ func main() {
 		fmt.Print("Pokedex > ")
 		ioscanner.Scan()
 		input_word := cleanInput(ioscanner.Text())
+		var command string
+		var args []string
+		conf.args = []string{}
 		if len(input_word) < 1 {
 			continue
+		} else {
+			command = input_word[0]
+			for i, _ := range input_word {
+				if i == 0 {
+					continue
+				}
+				args = append(args, input_word[i])
+			}
+			fmt.Println("args is %w", args)
+			conf.args = args
 		}
-		command := input_word[0]
+		
 		if val, ok := getCommands()[command]; ok {
 			err := val.callback(&conf)
 			if err != nil {
@@ -101,7 +121,7 @@ url
 **/
 func commandMap(conf *config) error {
 	if conf.next == "" {
-		conf.next = locationAreaURL
+		conf.next = mapURL
 	}
 	locations, err := getLocations(conf.next)
 	stringReferenceAssignment(&conf.next, locations.Next)
@@ -123,6 +143,26 @@ func commandMapBack(conf *config) error {
 	stringReferenceAssignment(&conf.next, locations.Next)
 	stringReferenceAssignment(&conf.previous, locations.Previous)
 	return err
+}
+
+func commandExploreArea(conf *config) error {
+	if (len(conf.args) < 1) {
+		return fmt.Errorf("comandExploreArea takes an area as an argument, but args length was 0")
+	}
+	url := fmt.Sprintf(areaURL, conf.args[0])
+	var area Area
+	err := makeGetRequest(url, &area)
+	if err != nil {
+		return fmt.Errorf("explore area request to url failed: %s\n%w",url,err)
+	}
+	if area.PokemonEncounters == nil || len(area.PokemonEncounters) < 1 {
+		return nil
+	}
+	for i := 0; i< len(area.PokemonEncounters); i++ {
+		fmt.Println(area.PokemonEncounters[i].Pokemon.Name)
+	}
+
+	return nil
 }
 
 func getLocations(url string) (Locations, error) {
